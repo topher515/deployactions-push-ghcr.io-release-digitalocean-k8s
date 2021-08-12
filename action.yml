@@ -54,7 +54,8 @@ runs:
     - name: '[Deploy] Deploy to cluster'
       shell: bash
       run: |-
-        helm upgrade \
+        helm dependency update ${{ inputs.helm-chart-dir }} && \
+          helm upgrade \
           --install ${{ inputs.release-name }} \
           ${{ inputs.helm-chart-dir }} \
           --set image.repository=${{ inputs.image }} \
