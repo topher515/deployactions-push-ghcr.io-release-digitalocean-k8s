@@ -1,0 +1,62 @@
+
+name: 'Push image to ghcr.io; Release to Digital Ocean k8s'
+description: 'Push docker image to Github Container Repository; Deploy that image to Digital Ocean kubernetes'
+inputs:
+  image:
+    description: 'The docker image (with registry) to push and deploy'
+    required: true
+  cluster-name:
+    description: 'The k8s cluster name to deploy to'
+    required: true
+  helm-chart-dir:
+    description: 'The directory containing the helm chart to deploy'
+    required: true
+  tag:
+    description: 'The tag of the docker image to deploy'
+    required: true
+  release-name:
+    description: 'The name of the release helm should target'
+    required: true
+  github-token:
+    description: 'Github token (to login to ghcr.io)'
+    required: true
+  release-values-file:
+    description: 'Path to extra values.yaml file for this release. e.g., "./dev-env.yaml"'
+    required: true
+    
+# Useful refs:
+# https://docs.github.com/en/actions/creating-actions/creating-a-composite-run-steps-action#testing-out-your-action-in-a-workflow
+# https://docs.github.com/en/actions/creating-actions/metadata-syntax-for-github-actions
+# https://stackoverflow.com/questions/63596379/composite-run-steps-github-actions-error-an-action-could-not-be-found-at-the-u
+
+runs:
+  using: "composite"
+  steps:
+
+    # Building
+    - name: '[Build] Login to container registry'
+      shell: bash
+      run: echo "${{ inputs.github-token }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+    - name: '[Build] Push built image' 
+      shell: bash
+      run: docker push --all-tags "${{ inputs.image }}"
+
+    # Useful references:
+    # - https://github.com/do-community/example-doctl-action
+    # - https://github.com/digitalocean/action-doctl
+    
+    # Deploying
+    - name: '[Deploy] Configure cluster access'
+      shell: bash
+      run: doctl kubernetes cluster kubeconfig save --expiry-seconds 600 "${{ inputs.cluster-name }}"
+
+    - name: '[Deploy] Deploy to cluster'
+      shell: bash
+      run: |-
+        helm upgrade \
+          --install ${{ inputs.release-name }} \
+          ${{ inputs.helm-chart-dir }} \
+          --set image.repository=${{ inputs.image }}
+          --set image.tag=${{ inputs.tag }} \
+          --values "${{ inputs.release-values-file }}"
