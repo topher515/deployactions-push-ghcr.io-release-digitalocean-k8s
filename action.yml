@@ -23,6 +23,10 @@ inputs:
   release-values-file:
     description: 'Path to extra values.yaml file for this release. e.g., "./dev-env.yaml"'
     required: true
+  namespace:
+    description: 'Kubernetes namespace to install into'
+    default: default
+    required: false
 
 # Useful refs:
 # https://docs.github.com/en/actions/creating-actions/creating-a-composite-run-steps-action#testing-out-your-action-in-a-workflow
@@ -56,6 +60,8 @@ runs:
       run: |-
         helm dependency update ${{ inputs.helm-chart-dir }} && \
           helm upgrade \
+          --create-namespace \
+          --namespace=${{ inputs.namespace }} \
           --install ${{ inputs.release-name }} \
           ${{ inputs.helm-chart-dir }} \
           --set image.repository=${{ inputs.image }} \
